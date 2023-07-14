@@ -25,7 +25,13 @@ import { hardhat } from 'viem/chains'
 
 const Bank = () => {
 
-  // coast
+  // viem
+  const client = createPublicClient({
+    chain: hardhat,
+    transport: http(),
+  })
+
+  // toast
   const toast = useToast()
 
   // useAccount
@@ -36,7 +42,10 @@ const Bank = () => {
 
   // state
   const [depositAmount, setDepositAmount] = useState(null)
+  const [withdrawAmount, setWithdrawAmount] = useState(null)
   const [balance, setBalance] = useState(null)
+  const [depositEvents, setDepositEvents] = useState([])
+  const [withdrawEvents, setWithdrawEvents] = useState([])
 
   // deposit
   const deposit = async () => {
@@ -69,6 +78,40 @@ const Bank = () => {
     }
   }
 
+  // withdraw
+  const withdraw = async () => {
+    try {
+      const { request } = await prepareWriteContract({
+        address: contractAddress,
+        abi: Contract.abi,
+        functionName: 'withdraw',
+        args: [ethers.parseEther(withdrawAmount)]
+      });
+
+      await writeContract(request);
+      // update balance
+      const balance = await getBalanceOfUser()
+      setBalance(ethers.formatEther(balance))
+
+      toast({
+        title: 'withdraw',
+        description: `withdraw success, ${withdrawAmount} Eth`,
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      })
+    } catch (error) {
+      console.log(error)
+      toast({
+        title: 'Error',
+        description: `withdraw failed, ${withdrawAmount} Eth`,
+        status: 'error',
+        duration: 2000,
+        isClosable: true,
+      })
+    }
+  }
+
   // get balance of the user on the smart contract
   const getBalanceOfUser = async () => {
     try {
@@ -85,11 +128,25 @@ const Bank = () => {
     }
   }
 
+  // get events
+  const getEvents = async () => {
+    // get all the deposit events
+    const depositLogs = await client.getLogs({
+      event: parseAbiItem('event etherDeposit(address indexed account, uint amount)'),
+      fromBlock: 0n,
+      toBlock: 'latest'
+    })
+    console.log(depositLogs)
+  }
+
+
+
   useEffect(() => {
     const getBalanceAndEvents = async () => {
       if (address !== 'undefine') {
         const balance = await getBalanceOfUser()
         setBalance(ethers.formatEther(balance))
+        await getEvents()
       }
     }
     getBalanceAndEvents()
@@ -114,8 +171,8 @@ const Bank = () => {
           Withdraw:
         </Heading>
         <Flex mt="1rem">
-          <Input onChange={e=> setDepositAmount(e.target.value)} placeholder="Amount" />
-          <Button colorScheme='purple'>Withdraw</Button>
+          <Input onChange={e=> setWithdrawAmount(e.target.value)} placeholder="Amount" />
+          <Button colorScheme='purple' onClick={ () => withdraw() }>Withdraw</Button>
         </Flex>
         <Heading as='h2' size='xl' mt='2rem'>
           Deposit events:
