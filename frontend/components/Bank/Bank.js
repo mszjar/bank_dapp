@@ -1,8 +1,6 @@
 "use client"
 
-// Outil permettant de générer des identifiants unique
-// car en ReactJS, lorsque l'on fait un map, chaque élément
-// doit avoir une "KEY" unique
+// unique id
 import { v4 as uuidv4 } from 'uuid';
 
 // REACT
@@ -58,6 +56,12 @@ const Bank = () => {
       });
 
       await writeContract(request);
+      // update balance
+      const balance = await getBalanceOfUser()
+      setBalance(ethers.formatEther(balance))
+
+      // get events
+      await getEvents()
 
       toast({
         title: 'Deposit',
@@ -92,6 +96,9 @@ const Bank = () => {
       // update balance
       const balance = await getBalanceOfUser()
       setBalance(ethers.formatEther(balance))
+
+      // get events
+      await getEvents()
 
       toast({
         title: 'withdraw',
@@ -132,14 +139,32 @@ const Bank = () => {
   const getEvents = async () => {
     // get all the deposit events
     const depositLogs = await client.getLogs({
-      event: parseAbiItem('event etherDeposit(address indexed account, uint amount)'),
+      event: parseAbiItem('event etherDeposited(address indexed account, uint amount)'),
       fromBlock: 0n,
       toBlock: 'latest'
     })
     console.log(depositLogs)
+    setDepositEvents(depositLogs.map(
+      log => ({
+        address: log.args.account,
+        amount: log.args.amount,
+      })
+    ))
+
+    // get all the Withdraw events
+    const withdrawLogs = await client.getLogs({
+      event: parseAbiItem('event etherWithdrawed(address indexed account, uint amount)'),
+      fromBlock: 0n,
+      toBlock: 'latest'
+    })
+    console.log(withdrawLogs)
+    setWithdrawEvents(withdrawLogs.map(
+      log => ({
+        address: log.args.account,
+        amount: log.args.amount,
+      })
+    ))
   }
-
-
 
   useEffect(() => {
     const getBalanceAndEvents = async () => {
@@ -178,13 +203,25 @@ const Bank = () => {
           Deposit events:
         </Heading>
         <Flex mt="1rem" direction='column'>
-
+          {depositEvents.length > 0 ? depositEvents.map((event) => {
+              return <Flex key={uuidv4()}>
+                <Text>{event.address} -{ethers.formatEther(event.amount)}</Text>
+              </Flex>
+          }) : (
+            <Text>No deposite events</Text>
+          )}
         </Flex>
         <Heading as='h2' size='xl' mt='2rem'>
           Withdraw events:
         </Heading>
         <Flex mt="1rem" direction='column'>
-
+        {withdrawEvents.length > 0 ? withdrawEvents.map((event) => {
+              return <Flex key={uuidv4()}>
+                <Text>{event.address} -{ethers.formatEther(event.amount)}</Text>
+              </Flex>
+          }) : (
+            <Text>No withdraw events</Text>
+          )}
         </Flex>
       </Flex>
           ) : (
